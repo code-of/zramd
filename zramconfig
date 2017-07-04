@@ -1,0 +1,374 @@
+#!/bin/bash
+# more tools at: https://github.com/ergotamin
+# zramconfig - An interactive configuration-tool for zramd
+# written 2017 - ergotamin
+#---------------------------
+# testing for kernel module
+modprobe zram
+if [ $? -ne 0 ]; then
+  echo "$(tput setaf 196) Module not found / broken !"
+  exit 1
+fi
+# exported tput-commands
+TITLE="$(tput cup 0 0)$(tput setaf 220) $(tput smul)ZRAM - Configuration$(tput rmul)"
+MTOP="$(tput cup 4 30)$(tput setaf 220)$(tput bold) $(tput smul)Menu$(tput rmul)$(tput sgr0)"
+B0=$(tput sgr0)
+B1=$(tput bold)
+D1=$(tput cup 2 0)$(tput setaf 42)
+D2=$(tput cup 3 0)$(tput setaf 208)
+G1=$(tput setaf 82)
+H1=$(tput setaf 220)
+I1=$(tput cup 2 0)$(tput setaf 196)
+I2=$(tput setaf 160)
+IN=$(tput ed)$(tput cup 15 20)$(tput setaf 123)
+L1=$(tput ed)$(tput cup 12 15)
+L2=$(tput setaf 190)
+L3=$(tput setaf 99)
+LI=$(tput ed)$(tput cup 14 20)$(tput setaf 208)
+M1=$(tput cup 5 20)$(tput setaf 190)
+M2=$(tput cup 6 20)$(tput setaf 190)
+M3=$(tput cup 7 20)$(tput setaf 190)
+M4=$(tput cup 8 20)$(tput setaf 190)
+M5=$(tput cup 9 20)$(tput setaf 190)
+MON1=$(tput cup 0 50)$(tput setaf 93)
+MON2=$(tput cup 1 50)$(tput setaf 93)
+MON3=$(tput cup 1 90)$(tput setaf 93)
+MON4=$(tput setaf 93)
+NO=$(tput cup 4 0)$(tput setaf 196)
+N0=$(tput cup 4 17)$(tput setaf 87)
+N1=$(tput cup 5 17)$(tput setaf 87)
+N2=$(tput cup 6 17)$(tput setaf 87)
+N3=$(tput cup 7 17)$(tput setaf 87)
+N4=$(tput cup 8 17)$(tput setaf 87)
+N5=$(tput cup 9 17)$(tput setaf 87)
+N6=$(tput cup 10 17)$(tput setaf 87)
+O1=$(tput cup 5 49)$(tput setaf 87)
+O2=$(tput cup 6 49)$(tput setaf 87)
+O3=$(tput cup 7 49)$(tput setaf 87)
+O4=$(tput cup 8 49)$(tput setaf 87)
+O5=$(tput cup 9 49)$(tput setaf 87)
+Q1=$(tput ed)$(tput cup 11 20)$(tput setaf 99)
+Q2=$(tput ed)$(tput cup 12 20)$(tput setaf 99)
+R1=$(tput ed)$(tput cup 11 10)$(tput setaf 99)
+R2=$(tput ed)$(tput cup 13 15)$(tput setaf 196)
+RE=$(tput cup 2 0)$(tput setaf 42)
+S1=$(tput cup 0 25)$(tput setaf 99)
+S2=$(tput cup 1 25)$(tput setaf 99)
+S3=$(tput cup 2 25)$(tput setaf 99)
+W1=$(tput ed)$(tput cup 2 0)$(tput setaf 196)
+W2=$(tput ed)$(tput cup 3 0)$(tput setaf 196)
+# menu-loop dependent
+LOOP_MENU=1
+# sets the config-path -> calculates unassigned ram-memory -> counts configuration-files
+get_status()
+{
+  unset MEMINFO
+  unset MAXSIZE
+  unset SIZE_COMPARE
+  unset NUM_DEVICES
+  ZRAM_CONFIG_PATH=/etc/zram.d
+  for i in $(cat /etc/zram.d/zram* | grep SIZE | cut -d= -f2 | cut -dM -f1); do
+    SIZE_COMPARE=$((SIZE_COMPARE+i))
+  done
+  MEMINFO="$(cat /proc/meminfo | grep MemTotal | cut -d: -f2 | sed 's\kB\\g')"
+  MAXSIZE="$(($((MEMINFO/1024))-SIZE_COMPARE))"
+  for i in /etc/zram.d/zram*; do
+    NUM_DEVICES=$((NUM_DEVICES+1))
+  done
+  clear
+  if [ -f /tmp/.zram* ]; then
+    status_zram="$S1 Service status :$G1$B1 Active$B0"
+    status_zram="$status_zram $S2 Devices active :$H1  $NUM_DEVICES"
+    status_zram="$status_zram $S3 RAM available  :$G1 $MAXSIZE M"
+  else
+    status_zram="$S1 Service status :$I2 Inactive"
+    status_zram="$status_zram $S2 Devices count  :$H1  $NUM_DEVICES"
+    status_zram="$status_zram $S3 RAM available  :$G1 $MAXSIZE M"
+  fi
+}
+# shows active device-specific properties
+monitor_active()
+{
+  if [ $(echo "$status_zram" | grep -E -c Active) -eq 1 ]; then
+    unset i
+    unset count
+    echo "$MON1┏━━━━━━━━━━━━━━━$(tput setaf 220)Status$MON4━━━━━━━━━━━━━━━━━━┓"
+    echo "$MON2┃$(tput setaf 240)        Device|Type|Options|Size"
+    echo "$MON3┃"
+    count=2
+    for i in /tmp/.zram*; do
+      i=$(cat $i)
+      echo "$(tput cup $count 50)$MON4┃$(tput setaf 33)    $i"
+      echo "$(tput cup $count 90)$MON4┃"
+      echo "$(tput cup $((count+1)) 50)$MON4┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛"
+      count=$((count+1))
+    done
+  else
+    echo "$(tput cup 3 50)$(tput setaf 124)No information to show"
+  fi
+}
+# writes the config for a filesystem
+write_filesystem_config()
+{
+  echo "#!/bin/bash" > $ZRAM_CONFIG_PATH/$zram_device
+  echo "# ZRAM-Configuration-File created by zramconfig" >> $ZRAM_CONFIG_PATH/$zram_device
+  echo "DEVICE=$zram_device" >> $ZRAM_CONFIG_PATH/$zram_device
+  echo "COMP_ALGORITHM=$zram_comp" >> $ZRAM_CONFIG_PATH/$zram_device
+  echo "SIZE=$zram_size" >> $ZRAM_CONFIG_PATH/$zram_device
+  echo "TYPE=$zram_type" >> $ZRAM_CONFIG_PATH/$zram_device
+  echo "MOUNT_OPTIONS='$zram_mountopt'" >> $ZRAM_CONFIG_PATH/$zram_device
+  echo "MOUNT_POINT=$zram_mountpoint" >> $ZRAM_CONFIG_PATH/$zram_device
+  echo "$D1 $zram_device has been configured... !"
+  echo "$D2  --> Restart the service to activate !"
+}
+# writes the config for swap-space
+write_swap_config()
+{
+  echo "#!/bin/bash" > $ZRAM_CONFIG_PATH/$zram_device
+  echo "# ZRAM-Configuration-File created by zramconfig" >> $ZRAM_CONFIG_PATH/$zram_device
+  echo "DEVICE=$zram_device" >> $ZRAM_CONFIG_PATH/$zram_device
+  echo "COMP_ALGORITHM=$zram_comp" >> $ZRAM_CONFIG_PATH/$zram_device
+  echo "SIZE=$zram_size" >> $ZRAM_CONFIG_PATH/$zram_device
+  echo "TYPE=$zram_type" >> $ZRAM_CONFIG_PATH/$zram_device
+  echo "SWAP_PRI=$zram_swap_pri" >> $ZRAM_CONFIG_PATH/$zram_device
+  echo "$D1 $zram_device has been configured... !"
+  echo "$D2  --> Restart the service to activate !"
+}
+# defines basic device properties
+basic_configuration()
+{
+  echo "$Q1┏ Which type of zram ?         "
+  echo "$Q2┗$L2 ext2$L3,$L2 ext4$L3,$L2 vfat$L3 or$L2 swap"
+  read -rp "$IN > " zram_type
+  echo "$Q1  Which size ?(not case-sensitive) Max. $MAXSIZE M "
+  echo "$Q2    e.g.:$L2 1G$L3 or$L2 250M"
+  read -rp "$IN > " zram_size
+  case $zram_size in
+    *G|*g)
+        zram_size="$(("$(echo $zram_size | cut -dG -f1 | cut -dg -f1)"*1024))"M
+        ;;
+    *M|*m)
+        zram_size="$(echo $zram_size | cut -dg -f1 | cut -dG -f1)"M
+        ;;
+    *)
+        return 1
+        ;;
+  esac
+  echo "$Q1  Which compression algorithm ?"
+  echo "$Q2$L2 lzo$L3,$L2 lz4$L3 or$L2 inflate    "
+  read -rp "$IN > " zram_comp
+}
+# specific filesystem properties
+filesystem_configuration()
+{
+  echo "$Q1  Where should it be mounted ? "
+  echo "$Q2   absolute path:$L2 /path/to/mount "
+  read -rp "$IN > " zram_mountpoint
+  echo "$Q1  What mount-options do you want ?   "
+  echo "$Q2   default:$L2 noatime,barrier=0    "
+  read -rp "$IN > " zram_mountopt
+}
+# specific swap-space properties
+swap_configuration()
+{
+  echo "$Q1  Please enter the swap-priority  "
+  echo "$Q2        $L2 1$L3 ...$L2 100       "
+  read -rp "$IN > " zram_swap_pri
+}
+# main menu
+main_menu()
+{
+  get_status
+  monitor_active
+  echo "$TITLE $status_zram"
+  echo "$N0┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓"
+  echo "$MTOP"
+  echo "$N1┃ $M1 1)$L3 Add a new Decice-Setup $B0 $O1┃"
+  echo "$N2┃ $M2 2)$L3 Reconfigure an existing$B0 $O2┃"
+  echo "$N3┃ $M3 3)$L3 Remove a Device-Setup  $B0 $O3┃"
+  echo "$N4┃ $M4 4)$L3 Service-Interaction    $B0 $O4┃"
+  echo "$N5┃ $M5 0)$L3 Exit                   $B0 $O5┃"
+  echo "$N6┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛"
+  read -rp "$IN > " option
+    case $option in
+      1)
+      basic_configuration
+      if [ "$zram_comp" == "lzo" ] || [ "$zram_comp" == "lz4" ] || [ "$zram_comp" == "inflate" ]; then
+        if [ "$zram_type" == "ext2" ] || [ "$zram_type" == "ext4" ] || [ "$zram_type" == "vfat" ] || [ "$zram_type" == "swap" ]; then
+          if [ $(echo "$zram_size" | cut -dM -f1) -le $MAXSIZE -a $(echo "$zram_size" | grep  -c "[mM]") -eq 1 ]; then
+              case $zram_type in
+                ext2|ext4|vfat)
+                  filesystem_configuration
+                  echo "$Q1  Testing input and saving to file"
+                  echo "$Q2      Please wait ... !           "
+                  if [ -n "$zram_mountpoint" ] && [ -z "$(echo "$zram_mountpoint" | cut -d/ -f1)" ];then
+                    if [ -z "$zram_mountopt"];then
+                      zram_mountopt="noatime,barrier=0"
+                    fi
+                      zram_device="zram$NUM_DEVICES"
+                      write_filesystem_config
+                      sleep 1.5
+                  else
+                    echo "$W1   Format of mountpoint ...        "
+                    echo "$W2  Is not an absolute Path ... !    "
+                    sleep 1.5
+                  fi
+                  ;;
+                swap)
+                  swap_configuration
+                  echo "$Q1  Testing input and saving to file"
+                  echo "$Q2      Please wait ... !           "
+                  if [ $zram_swap_pri -gt 0 ]; then
+                    zram_device="zram$NUM_DEVICES"
+                    write_swap_config
+                    sleep 1.5
+                  else
+                    echo "$W1      Swap-priority ...            "
+                    echo "$W2  Please choose a value > 0 ...  ! "
+                    sleep 1.5
+                  fi
+                  ;;
+                *)
+                  echo "$I1 Invalid option ... !"
+                  sleep 1.5
+                  ;;
+              esac
+          else
+            echo "$I1 Invalid option ... !"
+            sleep 1.5
+          fi
+        else
+          echo "$I1 Invalid option ... !"
+          sleep 1.5
+        fi
+      else
+        echo "$I1 Invalid option ... !"
+        sleep 1.5
+      fi
+      ;;
+      2)
+      echo "$Q1  Which one you want to edit ? "
+      echo "$Q2   $(ls $ZRAM_CONFIG_PATH)     "
+      read -rp "$IN > " zram_to_edit
+      if [ -n $zram_to_edit ] && [ $(ls $ZRAM_CONFIG_PATH | grep -c "$zram_to_edit") -eq 1 ]; then
+        basic_configuration
+        if [ "$zram_comp" == "lzo" ] || [ "$zram_comp" == "lz4" ] || [ "$zram_comp" == "inflate" ]; then
+          if [ "$zram_type" == "ext2" ] || [ "$zram_type" == "ext4" ] || [ "$zram_type" == "vfat" ] || [ "$zram_type" == "swap" ]; then
+            if [ $(echo "$zram_size" | cut -dM -f1) -le $MAXSIZE -a $(echo "$zram_size" | grep  -c "[mM]") -eq 1 ]; then
+                case $zram_type in
+                  ext2|ext4|vfat)
+                    filesystem_configuration
+                    echo "$Q1  Testing input and saving to file"
+                    echo "$Q2      Please wait ... !           "
+                    if [ -n "$zram_mountpoint" ] && [ -z "$(echo "$zram_mountpoint" | cut -d/ -f1)" ];then
+                      if [ -z "$zram_mountopt"];then
+                        zram_mountopt="noatime,barrier=0"
+                      fi
+                        zram_device="$zram_to_edit"
+                        write_filesystem_config
+                        sleep 1.5
+                    else
+                      echo "$W1   Format of mountpoint ...        "
+                      echo "$W2  Is not an absolute Path ... !    "
+                      sleep 1.5
+                    fi
+                    ;;
+                  swap)
+                    swap_configuration
+                    echo "$Q1  Testing input and saving to file"
+                    echo "$Q2      Please wait ... !           "
+                    if [ $zram_swap_pri -gt 0 ]; then
+                      zram_device="$zram_to_edit"
+                      write_swap_config
+                      sleep 1.5
+                    else
+                      echo "$W1      Swap-priority ...            "
+                      echo "$W2  Please choose a value > 0 ...  ! "
+                      sleep 1.5
+                    fi
+                    ;;
+                  *)
+                    echo "$I1 Invalid option ... !"
+                    sleep 1.5
+                    ;;
+                esac
+            else
+              echo "$I1 Invalid option ... !"
+              sleep 1.5
+            fi
+          else
+            echo "$I1 Invalid option ... !"
+            sleep 1.5
+          fi
+        else
+          echo "$I1 Invalid option ... !"
+          sleep 1.5
+        fi
+      else
+        echo "$W1   Something went wrong ...        "
+        echo "$W2    No such device ... !           "
+      fi
+      ;;
+      3)
+      echo "$R1 Which one you want to remove ($L2 no confirmation - instant removal $L3) ?   "
+      echo "$R2 zram0 cannot be removed - deactivate the service instead"
+      unset list_devices
+      for each in $ZRAM_CONFIG_PATH/zram*; do
+        list_devices="$list_devices $(echo $each | cut -d/ -f4)"
+      done
+      echo "$LI $list_devices"
+      read -rp "$IN > " zram_to_remove
+      if [ $zram_to_remove != "zram0" ]; then
+        rm -f $ZRAM_CONFIG_PATH/"$zram_to_remove"
+        if [ $? -ne 0 ]; then
+          echo "$NO No such file ... !"
+          sleep 1.5
+        else
+          echo "$RE $zram_to_remove has been removed ... !"
+          sleep 1.5
+        fi
+      else
+        echo "$W1    zram0 cannot be removed ... ! "
+        echo "$W2    (reconfigure if needed)       "
+        sleep 1.5
+      fi
+      ;;
+      4)
+      echo "$Q1  What do you want to be done ?                    "
+      echo "$L1$L2 1)$L3 Enable$L2 2)$L3 Start$L2 3)$L3 Stop$L2 4) $L3 Restart$L2 5)$L3 Disable  "
+      read -rp "$IN > " zram_service
+        case $zram_service in
+          1)
+          systemctl enable zramd.service
+          ;;
+          2)
+          systemctl start zramd.service
+          ;;
+          3)
+          systemctl stop zramd.service
+          ;;
+          4)
+          systemctl restart zramd.service
+          ;;
+          5)
+          systemctl disable zramd.service
+          ;;
+          *)
+          echo "$I1 Invalid option ... !"
+          sleep 1.5
+          ;;
+        esac
+      ;;
+      0)
+      loop=0
+      exit 0
+      ;;
+      *)
+      echo "$I1 Invalid option ... !"
+      sleep 1.5
+      ;;
+    esac
+}
+while [ $LOOP_MENU -ne 0 ]; do
+  main_menu
+done

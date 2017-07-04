@@ -1,0 +1,14 @@
+[Unit]
+Description=ZRAM - Creation Service
+Documentation=https://github.com/ergotamin/zramd/wiki
+Requires=basic.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/zramd start
+ExecStop=/usr/bin/zramd stop
+ExecReload=/usr/bin/zramd restart
+
+[Install]
+WantedBy=multi-user.target
