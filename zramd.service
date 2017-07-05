@@ -1,6 +1,6 @@
 [Unit]
 Description=ZRAM - Creation Service
-Documentation=https://github.com/ergotamin/zramd/wiki
+Documentation=https://github.com/ergotamin/zramd
 Requires=basic.target
 
 [Service]

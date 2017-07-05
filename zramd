@@ -53,6 +53,9 @@ case $1 in
             echo " !!! Failed to create $i with $SIZE , exceeded $MAXSIZE M diskspace !!! "
             exit 1
           fi
+          if [ -n "$SWAPPINESS" ]; then
+            sysctl vm.swappiness=$SWAPPINESS > /dev/zero
+          fi
           echo $COMP_ALGORITHM > /sys/block/"$DEVICE"/comp_algorithm
           echo $SIZE > /sys/block/"$DEVICE"/disksize
           DEVICE_PATH=/dev/"$DEVICE"
@@ -62,9 +65,6 @@ case $1 in
                   swapon -p "$SWAP_PRI" $DEVICE_PATH > /dev/zero
                   echo "   -> $DEVICE_PATH $TYPE pri=$SWAP_PRI $SIZE"
                   echo "$DEVICE_PATH $TYPE pri=$SWAP_PRI $SIZE" > /tmp/.$DEVICE.$TYPE
-                  if [ -n "$SWAPPINESS" ]; then
-                    sysctl vm.swappiness=$SWAPPINESS > /dev/zero
-                  fi
                   ;;
               ext4|ext2|vfat)
                   mkdir -p $MOUNT_POINT
