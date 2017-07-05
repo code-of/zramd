@@ -1,10 +1,4 @@
 # Ignored files:
-<<<<<<< HEAD
 # screenshot.jpg
-=======
-README.md
-#INSTALL.md
-screenshot.jpg
->>>>>>> 262b3ee24bd5cf656dc404c9d21aaee177c3caf8
 # Ignored directory
 zramd-*/*
