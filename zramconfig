@@ -4,7 +4,7 @@
 # written 2017 - ergotamin
 #---------------------------
 # testing for kernel module
-modprobe zram
+modprobe -n zram
 if [ $? -ne 0 ]; then
   echo "$(tput setaf 196) Module not found / broken !"
   exit 1

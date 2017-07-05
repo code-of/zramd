@@ -1,4 +1,8 @@
 #!/bin/bash
+# more tools at: https://github.com/ergotamin
+# zramd - Serve zram-configuration after boot
+# written 2017 - ergotamin
+#---------------------------
 MEMINFO="$(cat /proc/meminfo | grep MemTotal | cut -d: -f2 | sed 's\kB\\g')"
 MAXSIZE="$((MEMINFO/1024))"
 ZRAM_CONFIG_PATH=/etc/zram.d
@@ -91,7 +95,7 @@ case $1 in
       ;;
   "stop")
       unset i
-      if [ -f /tmp/.zram*.* ]; then
+      if [ -f /tmp/.zram0.swap ] || [ -f /tmp/.zram0.ext4 ] || [ -f /tmp/.zram0.ext2 ] || [ -f /tmp/.zram0.vfat ]; then
         for i in /tmp/.zram*.*; do
           case $(echo $i | cut -d/ -f3 | cut -d. -f3) in
             ext2|ext4|vfat)
