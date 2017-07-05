@@ -1,6 +1,6 @@
 # Ignored files:
 README.md
-INSTALL.md
+#INSTALL.md
 screenshot.jpg
 # Ignored directory
 zramd-*/*
